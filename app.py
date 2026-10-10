@@ -125,20 +125,23 @@ def parse(text: str = Form(...)):
     return {"count": len(cues), "cues": cues[:200]}
 
 
-@app.post("/api/srt")
-def srt_to_audio(text: str = Form(...), voice_id: str = Form(...), fmt: str = Form("wav"),
-                 mode: str = Form("timed"), fit: bool = Form(True)):
-    cues = srtlib.parse(text)
-    if not cues:
-        raise HTTPException(400, "Không đọc được câu thoại nào trong phụ đề.")
-    _meta(voice_id)
+class Cancelled(Exception):
+    pass
+
+
+def _build_srt(cues, voice_id, mode, fit, on_progress=None, is_cancelled=None):
+    """Đọc từng câu rồi ghép thành một bản âm thanh. Trả về (audio, sample_rate)."""
     clips, sr = [], None
-    for c in cues:
+    for i, c in enumerate(cues):
+        if is_cancelled and is_cancelled():
+            raise Cancelled()
         a, sr = _synth(c["text"], voice_id)
         slot = (c["end"] - c["start"]) / 1000
         if mode == "timed" and fit and slot > 0.3 and len(a) / sr > slot:
             a = au.speed_up(a, sr, min(1.6, (len(a) / sr) / slot))
         clips.append(a)
+        if on_progress:
+            on_progress(i + 1, len(cues))
     gap = int(0.3 * sr)
     placed, cursor = [], 0
     for c, a in zip(cues, clips):
@@ -149,7 +152,93 @@ def srt_to_audio(text: str = Form(...), voice_id: str = Form(...), fmt: str = Fo
     out = np.zeros(cursor, dtype=np.float32)
     for pos, a in placed:
         out[pos:pos + len(a)] = a
+    return out, sr
+
+
+@app.post("/api/srt")
+def srt_to_audio(text: str = Form(...), voice_id: str = Form(...), fmt: str = Form("wav"),
+                 mode: str = Form("timed"), fit: bool = Form(True)):
+    cues = srtlib.parse(text)
+    if not cues:
+        raise HTTPException(400, "Không đọc được câu thoại nào trong phụ đề.")
+    _meta(voice_id)
+    out, sr = _build_srt(cues, voice_id, mode, fit)
     return _reply(out, sr, fmt, "phu-de")
+
+
+# ---- Công việc chạy nền: để giao diện hiện tiến độ, thời gian còn lại và có thể hủy ----
+JOBS: dict = {}
+
+
+def _prune_jobs():
+    now = time.time()
+    for k in [k for k, j in JOBS.items() if now - j["created"] > 3600]:
+        JOBS.pop(k, None)
+
+
+def _run_job(jid, cues, voice_id, fmt, mode, fit):
+    job = JOBS[jid]
+
+    def progress(done, total):
+        job["done"] = done
+        job["marks"].append(time.time())
+
+    try:
+        out, sr = _build_srt(cues, voice_id, mode, fit, progress, lambda: job["cancel"])
+        job["result"] = au.encode(out, sr, fmt)
+        job["state"] = "done"
+    except Cancelled:
+        job["state"] = "cancelled"
+    except Exception as e:  # báo lỗi cho giao diện thay vì làm sập luồng
+        job["state"] = "error"
+        job["error"] = str(e) or e.__class__.__name__
+
+
+@app.post("/api/srt/start")
+def srt_start(text: str = Form(...), voice_id: str = Form(...), fmt: str = Form("wav"),
+              mode: str = Form("timed"), fit: bool = Form(True)):
+    cues = srtlib.parse(text)
+    if not cues:
+        raise HTTPException(400, "Không đọc được câu thoại nào trong phụ đề.")
+    _meta(voice_id)
+    _prune_jobs()
+    jid = uuid.uuid4().hex[:12]
+    JOBS[jid] = {"state": "running", "done": 0, "total": len(cues), "created": time.time(),
+                 "marks": [], "cancel": False, "result": None, "error": ""}
+    threading.Thread(target=_run_job, args=(jid, cues, voice_id, fmt, mode, fit), daemon=True).start()
+    return {"job_id": jid, "total": len(cues)}
+
+
+def _job(jid):
+    if jid not in JOBS:
+        raise HTTPException(404, "Không tìm thấy công việc này.")
+    return JOBS[jid]
+
+
+@app.get("/api/jobs/{jid}")
+def job_status(jid: str):
+    j = _job(jid)
+    return {"state": j["state"], "done": j["done"], "total": j["total"],
+            "elapsed": round(time.time() - j["created"], 1), "error": j["error"],
+            "marks": [round(m - j["created"], 2) for m in j["marks"][-30:]]}
+
+
+@app.get("/api/jobs/{jid}/result")
+def job_result(jid: str):
+    j = _job(jid)
+    if j["state"] != "done":
+        raise HTTPException(409, "Âm thanh chưa tạo xong.")
+    data, mime, ext = j["result"]
+    JOBS.pop(jid, None)
+    return Response(data, media_type=mime,
+                    headers={"Content-Disposition": f'attachment; filename="phu-de.{ext}"'})
+
+
+@app.delete("/api/jobs/{jid}")
+def job_cancel(jid: str):
+    if jid in JOBS:
+        JOBS[jid]["cancel"] = True       # luồng sẽ dừng sau câu đang đọc
+    return {"ok": True}
 
 
 app.mount("/", StaticFiles(directory=BUNDLE / "static", html=True), name="static")

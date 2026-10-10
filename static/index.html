@@ -46,6 +46,9 @@ textarea.mono { font-family: var(--mono); font-size: .8rem; min-height: 200px; }
 .msg.err { color: var(--danger); } .msg.ok { color: var(--ok); }
 .note { font-size: .82rem; color: var(--muted); margin: 0; }
 .rec { color: var(--danger); font-family: var(--mono); }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.eta { font-variant-numeric: tabular-nums; color: var(--ink); }
 .hidden { display: none !important; }
 </style>
 </head>
@@ -127,6 +130,7 @@ textarea.mono { font-family: var(--mono); font-size: .8rem; min-height: 200px; }
       </div>
 
       <div class="msg" id="msg" aria-live="polite"></div>
+      <div class="bar hidden" id="bar" role="progressbar" aria-label="Tiến độ tạo âm thanh"><i id="barFill"></i></div>
       <div id="result" style="display:none;gap:8px">
         <audio id="out" controls style="width:100%"></audio>
         <div class="row"><a class="btn" id="dl" download>Tải về</a></div>
@@ -152,6 +156,16 @@ function clearResult() {            // bỏ kết quả đã tạo trước đó
   o.removeAttribute("src"); o.load();
   if (outUrl) { URL.revokeObjectURL(outUrl); outUrl = null; }
   $("dl").removeAttribute("href"); $("result").style.display = "none";
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmtT = sec => {                       // 75 -> "1:15", 3700 -> "1:01:40"
+  const s = Math.max(0, Math.round(sec)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s % 60).padStart(2, "0");
+};
+let jobId = null;
+function abortCurrent() {                   // huỷ công việc phụ đề đang chạy ở máy chủ
+  if (jobId) { fetch("/api/jobs/" + jobId, { method: "DELETE" }).catch(() => {}); jobId = null; }
+  $("bar").classList.add("hidden"); $("barFill").style.width = "0";
 }
 // Chỉ một trình phát chạy tại một thời điểm: bấm phát cái nào thì các cái khác tự dừng.
 document.addEventListener("play", e => {
@@ -261,7 +275,9 @@ async function generate(url, fd, btn) {
   const myId = ++genId;               // nếu có yêu cầu mới hơn thì kết quả này bị bỏ
   clearResult(); stopAudio($("prev"));
   btn.disabled = true;
-  setMsg($("msg"), "Đang tạo âm thanh. Câu dài hoặc phụ đề nhiều dòng có thể mất vài phút…");
+  const t0 = Date.now();
+  const tick = setInterval(() => setMsg($("msg"), "Đang tạo âm thanh… đã chạy " + fmtT((Date.now() - t0) / 1000)), 500);
+  setMsg($("msg"), "Đang tạo âm thanh… đã chạy 0:00");
   try {
     const r = await api(url, { method: "POST", body: fd });
     const blob = await r.blob();
@@ -272,13 +288,63 @@ async function generate(url, fd, btn) {
     $("result").style.display = "grid"; setMsg($("msg"), "Xong.", "ok");
     if ($("fmt").value === "mp3" && ext === "wav") setMsg($("msg"), "Xong. Máy chưa có ffmpeg nên kết quả là WAV.", "ok");
   } catch (e) { if (myId === genId) setMsg($("msg"), e.message, "err"); }
+  finally { clearInterval(tick); }
   if (myId === genId) btn.disabled = false;
+}
+
+/* ---------- Phụ đề: chạy nền, có đếm ngược thời gian còn lại ---------- */
+function renderProgress(st) {
+  const { done, total, elapsed, marks } = st;
+  $("bar").classList.remove("hidden");
+  $("barFill").style.width = (total ? done / total * 100 : 0) + "%";
+  let eta = "đang ước tính…";
+  if (marks.length >= 2) {                  // tốc độ trung bình của các câu gần nhất
+    const rate = (marks[marks.length - 1] - marks[0]) / (marks.length - 1);
+    eta = "khoảng " + fmtT(Math.max(0, rate * (total - done) - (elapsed - marks[marks.length - 1])));
+  } else if (done >= total) eta = "0:00";
+  const el = $("msg"); el.className = "msg";
+  el.innerHTML = "";
+  const b = document.createElement("span"); b.className = "eta";
+  b.textContent = "Câu " + done + "/" + total + " · đã chạy " + fmtT(elapsed) + " · còn lại " + eta;
+  el.appendChild(b);
+}
+async function generateSrt(fd, btn) {
+  if (!$("voice").value) return setMsg($("msg"), "Hãy thêm và chọn một giọng trước.", "err");
+  fd.append("voice_id", $("voice").value); fd.append("fmt", $("fmt").value);
+  const myId = ++genId;
+  abortCurrent(); clearResult(); stopAudio($("prev"));
+  btn.disabled = true; setMsg($("msg"), "Đang gửi phụ đề…");
+  try {
+    const j = await (await api("/api/srt/start", { method: "POST", body: fd })).json();
+    if (myId !== genId) { fetch("/api/jobs/" + j.job_id, { method: "DELETE" }).catch(() => {}); return; }
+    jobId = j.job_id;
+    renderProgress({ done: 0, total: j.total, elapsed: 0, marks: [] });
+    let st;
+    for (;;) {
+      await sleep(700);
+      if (myId !== genId) return;
+      st = await (await api("/api/jobs/" + j.job_id)).json();
+      if (myId !== genId) return;
+      if (st.state !== "running") break;
+      renderProgress(st);
+    }
+    if (st.state === "error") throw new Error(st.error || "Có lỗi khi tạo âm thanh.");
+    if (st.state === "cancelled") { setMsg($("msg"), "Đã hủy."); return; }
+    const blob = await (await api("/api/jobs/" + j.job_id + "/result")).blob();
+    if (myId !== genId) return;
+    const ext = blob.type.includes("mpeg") ? "mp3" : "wav";
+    outUrl = URL.createObjectURL(blob);
+    $("out").src = outUrl; $("dl").href = outUrl; $("dl").download = "voice-studio." + ext;
+    $("result").style.display = "grid";
+    setMsg($("msg"), "Xong sau " + fmtT(st.elapsed) + (($("fmt").value === "mp3" && ext === "wav") ? ". Máy chưa có ffmpeg nên kết quả là WAV." : "."), "ok");
+  } catch (e) { if (myId === genId) setMsg($("msg"), e.message, "err"); }
+  finally { if (myId === genId) { jobId = null; $("bar").classList.add("hidden"); btn.disabled = false; } }
 }
 $("goT").onclick = () => { const fd = new FormData(); fd.append("text", $("text").value); generate("/api/speak", fd, $("goT")); };
 $("goS").onclick = () => {
   const fd = new FormData();
   fd.append("text", $("srt").value); fd.append("mode", $("smode").value); fd.append("fit", $("sfit").checked);
-  generate("/api/srt", fd, $("goS"));
+  generateSrt(fd, $("goS"));
 };
 $("spick").onclick = () => $("sfile").click();
 async function countCues() {
@@ -288,7 +354,7 @@ async function countCues() {
 }
 $("sfile").onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
-  genId++;                            // huỷ kết quả của file phụ đề trước (đang tạo hoặc đang phát)
+  genId++; abortCurrent();            // huỷ kết quả của file phụ đề trước (đang tạo hoặc đang phát)
   clearResult(); setMsg($("msg"), "");
   $("goS").disabled = false; $("goT").disabled = false;
   $("srt").value = await f.text(); countCues();
