@@ -2,10 +2,21 @@
 import io
 import shutil
 import subprocess
+import sys
+from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-FFMPEG = shutil.which("ffmpeg")
+def _find_ffmpeg():
+    base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
+    for name in ("ffmpeg.exe", "ffmpeg"):
+        p = base / name
+        if p.is_file():
+            return str(p)
+    return shutil.which("ffmpeg")
+
+
+FFMPEG = _find_ffmpeg()
 
 
 def to_wav_file(src_path: str, dst_path: str):

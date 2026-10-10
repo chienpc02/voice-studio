@@ -6,3 +6,8 @@ voices/
 output/
 
 .env
+build/
+dist/
+.buildenv/
+*.spec
+.idea/

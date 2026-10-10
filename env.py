@@ -5,11 +5,13 @@ File .env nằm cạnh app.py, KHÔNG được đưa lên Git. Ví dụ nội du
 Biến đã đặt sẵn trong hệ thống có ưu tiên hơn file .env.
 """
 import os
+import sys
 from pathlib import Path
 
 
 def load_env(path: Path | None = None) -> None:
-    p = path or Path(__file__).parent / ".env"
+    base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
+    p = path or base / ".env"
     if not p.is_file():
         return
     for line in p.read_text("utf-8-sig").splitlines():

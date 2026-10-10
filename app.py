@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import sys
 import tempfile
 import threading
 import time
@@ -18,7 +19,9 @@ import audio as au
 import srt as srtlib
 from engine import load_engine
 
-ROOT = Path(__file__).parent
+FROZEN = getattr(sys, "frozen", False)
+ROOT = Path(sys.executable).parent if FROZEN else Path(__file__).parent   # nơi chứa voices/, .env, ffmpeg.exe
+BUNDLE = Path(getattr(sys, "_MEIPASS", ROOT))                              # nơi chứa static/ khi đã đóng gói
 VOICES = ROOT / "voices"
 VOICES.mkdir(exist_ok=True)
 
@@ -149,4 +152,4 @@ def srt_to_audio(text: str = Form(...), voice_id: str = Form(...), fmt: str = Fo
     return _reply(out, sr, fmt, "phu-de")
 
 
-app.mount("/", StaticFiles(directory=ROOT / "static", html=True), name="static")
+app.mount("/", StaticFiles(directory=BUNDLE / "static", html=True), name="static")
