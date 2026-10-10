@@ -33,30 +33,3 @@ def parse(text: str):
             cues.append({"start": start, "end": end, "text": " ".join(body.split())})
     cues.sort(key=lambda c: c["start"])
     return cues
-
-
-_END = re.compile(r'[.!?…。！？]["”’)\]]*$')
-
-
-def merge(cues, max_gap=800, soft_ms=3000, soft_chars=60, hard_ms=12000, hard_chars=220):
-    """Gộp các dòng phụ đề bị cắt vụn thành câu trọn vẹn để giọng đọc tự nhiên hơn.
-
-    Cắt câu khi: khoảng lặng giữa hai dòng lớn, câu gộp quá dài, hoặc dòng hiện tại đã
-    kết thúc bằng dấu câu và đủ dài (soft_ms / soft_chars)."""
-    out, cur = [], None
-    for c in cues:
-        if cur is None:
-            cur = dict(c)
-            continue
-        gap = c["start"] - cur["end"]
-        too_long = (c["end"] - cur["start"] > hard_ms) or (len(cur["text"]) + 1 + len(c["text"]) > hard_chars)
-        ended = bool(_END.search(cur["text"])) and (cur["end"] - cur["start"] >= soft_ms or len(cur["text"]) >= soft_chars)
-        if gap > max_gap or too_long or ended:
-            out.append(cur)
-            cur = dict(c)
-        else:
-            cur["end"] = c["end"]
-            cur["text"] = cur["text"] + " " + c["text"]
-    if cur:
-        out.append(cur)
-    return out

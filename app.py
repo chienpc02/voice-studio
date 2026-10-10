@@ -7,7 +7,6 @@ import tempfile
 import threading
 import time
 import uuid
-from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
@@ -46,26 +45,11 @@ def _meta(vid: str):
     return json.loads(p.read_text("utf-8"))
 
 
-_CACHE: "OrderedDict" = OrderedDict()   # (voice_id, text) -> (audio, sample_rate)
-_CACHE_MAX = 400
-_cache_lock = threading.Lock()
-
-
 def _synth(text: str, vid: str):
-    """Đọc một câu. Kết quả được nhớ lại: nghe thử câu nào thì khi tạo toàn bộ dùng lại câu đó."""
     _meta(vid)
-    key = (vid, text)
-    with _cache_lock:
-        if key in _CACHE:
-            _CACHE.move_to_end(key)
-            return _CACHE[key]
     eng = engine()
     with _lock:
         a = eng.synthesize(text, str(VOICES / f"{vid}.wav"))
-    with _cache_lock:
-        _CACHE[key] = (a, eng.sample_rate)
-        while len(_CACHE) > _CACHE_MAX:
-            _CACHE.popitem(last=False)
     return a, eng.sample_rate
 
 
@@ -136,11 +120,9 @@ def speak(text: str = Form(...), voice_id: str = Form(...), fmt: str = Form("wav
 
 
 @app.post("/api/parse")
-def parse(text: str = Form(...), merge: bool = Form(True)):
-    raw = srtlib.parse(text)
-    cues = srtlib.merge(raw) if merge else raw
-    return {"raw_count": len(raw), "count": len(cues), "cues": cues,
-            "duration_ms": max((c["end"] for c in cues), default=0)}
+def parse(text: str = Form(...)):
+    cues = srtlib.parse(text)
+    return {"count": len(cues), "cues": cues[:200]}
 
 
 class Cancelled(Exception):
@@ -153,7 +135,7 @@ def _build_srt(cues, voice_id, mode, fit, on_progress=None, is_cancelled=None):
     for i, c in enumerate(cues):
         if is_cancelled and is_cancelled():
             raise Cancelled()
-        a, sr = _synth(c["text"], c.get("voice_id") or voice_id)
+        a, sr = _synth(c["text"], voice_id)
         slot = (c["end"] - c["start"]) / 1000
         if mode == "timed" and fit and slot > 0.3 and len(a) / sr > slot:
             a = au.speed_up(a, sr, min(1.6, (len(a) / sr) / slot))
@@ -213,21 +195,9 @@ def _run_job(jid, cues, voice_id, fmt, mode, fit):
 
 
 @app.post("/api/srt/start")
-def srt_start(voice_id: str = Form(...), fmt: str = Form("wav"), mode: str = Form("timed"),
-              fit: bool = Form(True), text: str = Form(""), cues: str = Form("")):
-    if cues:      # danh sách câu đã gộp/chỉnh sửa từ giao diện, mỗi câu có thể có giọng riêng
-        try:
-            items = json.loads(cues)
-            cues = [{"start": int(c["start"]), "end": int(c["end"]), "text": str(c["text"]).strip(),
-                     "voice_id": str(c.get("voice_id") or "")} for c in items][:5000]
-        except (ValueError, KeyError, TypeError):
-            raise HTTPException(400, "Danh sách câu không hợp lệ.")
-        cues = [c for c in cues if c["text"]]
-        for c in cues:
-            if c["voice_id"]:
-                _meta(c["voice_id"])
-    else:
-        cues = srtlib.parse(text)
+def srt_start(text: str = Form(...), voice_id: str = Form(...), fmt: str = Form("wav"),
+              mode: str = Form("timed"), fit: bool = Form(True)):
+    cues = srtlib.parse(text)
     if not cues:
         raise HTTPException(400, "Không đọc được câu thoại nào trong phụ đề.")
     _meta(voice_id)
