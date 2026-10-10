@@ -126,6 +126,9 @@ textarea.mono { font-family: var(--mono); font-size: .8rem; min-height: 200px; }
           <input type="checkbox" id="sfit" checked>
           <span>Tăng tốc câu đọc dài hơn khoảng thời gian cho phép (cần ffmpeg)</span>
         </label>
+        <label for="smax">Tăng tốc tối đa: <b id="smaxv">1.8</b>x (cao hơn thì ít bị trễ nhưng giọng đọc nhanh hơn)
+          <input type="range" id="smax" min="1" max="2.5" step="0.1" value="1.8">
+        </label>
         <div class="row"><button class="btn primary" id="goS" type="button">Tạo âm thanh từ phụ đề</button></div>
       </div>
 
@@ -336,16 +339,20 @@ async function generateSrt(fd, btn) {
     outUrl = URL.createObjectURL(blob);
     $("out").src = outUrl; $("dl").href = outUrl; $("dl").download = "voice-studio." + ext;
     $("result").style.display = "grid";
-    setMsg($("msg"), "Xong sau " + fmtT(st.elapsed) + (($("fmt").value === "mp3" && ext === "wav") ? ". Máy chưa có ffmpeg nên kết quả là WAV." : "."), "ok");
+    const sx = st.stats || {};
+    const info = sx.srt_sec ? " File dài " + fmtT(sx.out_sec) + ", phụ đề dài " + fmtT(sx.srt_sec) +
+      (sx.late ? "; " + sx.late + " câu không kịp (trễ nhất " + sx.worst + " giây). Thử tăng tốc tối đa hoặc rút gọn lời." : ".") : "";
+    setMsg($("msg"), "Xong sau " + fmtT(st.elapsed) + "." + info + (($("fmt").value === "mp3" && ext === "wav") ? " Máy chưa có ffmpeg nên kết quả là WAV." : ""), "ok");
   } catch (e) { if (myId === genId) setMsg($("msg"), e.message, "err"); }
   finally { if (myId === genId) { jobId = null; $("bar").classList.add("hidden"); btn.disabled = false; } }
 }
 $("goT").onclick = () => { const fd = new FormData(); fd.append("text", $("text").value); generate("/api/speak", fd, $("goT")); };
 $("goS").onclick = () => {
   const fd = new FormData();
-  fd.append("text", $("srt").value); fd.append("mode", $("smode").value); fd.append("fit", $("sfit").checked);
+  fd.append("text", $("srt").value); fd.append("mode", $("smode").value); fd.append("fit", $("sfit").checked); fd.append("max_speed", $("smax").value);
   generateSrt(fd, $("goS"));
 };
+$("smax").oninput = () => { $("smaxv").textContent = $("smax").value; };
 $("spick").onclick = () => $("sfile").click();
 async function countCues() {
   const t = $("srt").value; if (!t.trim()) return setMsg($("scount"), "");
