@@ -4,3 +4,5 @@ __pycache__/
 ffmpeg.exe
 voices/
 output/
+
+.env

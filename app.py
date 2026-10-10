@@ -13,6 +13,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+import env  # noqa: F401  (nạp .env, gồm HF_TOKEN, trước khi tải mô hình)
 import audio as au
 import srt as srtlib
 from engine import load_engine
@@ -51,7 +52,8 @@ def _synth(text: str, vid: str):
 
 @app.get("/api/status")
 def status():
-    return {"engine": os.environ.get("VOICE_ENGINE", "vieneu"), "ffmpeg": bool(au.FFMPEG)}
+    return {"engine": os.environ.get("VOICE_ENGINE", "vieneu"), "ffmpeg": bool(au.FFMPEG),
+            "hf_token": bool(os.environ.get("HF_TOKEN"))}
 
 
 @app.get("/api/voices")

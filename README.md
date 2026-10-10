@@ -14,6 +14,9 @@ Web app chạy trên máy: tạo giọng từ mẫu thu ngắn, đọc văn bả
 
 Giọng được lưu trong thư mục `voices/`. Thử giao diện không cần mô hình: `VOICE_ENGINE=dummy ./run.sh` (chỉ ra tiếng bíp).
 
+## Token Hugging Face (tải mô hình nhanh hơn)
+Sao chép `.env.example` thành `.env`, điền `HF_TOKEN=...` của bạn rồi chạy lại. File `.env` không bị đưa lên Git. Đừng dán token vào code hay gửi cho người khác.
+
 ## Đổi mô hình
 Mở `engine.py`, thêm một lớp có `sample_rate` và `synthesize(text, ref_wav_path)`, rồi trả về trong `load_engine()`.
 
