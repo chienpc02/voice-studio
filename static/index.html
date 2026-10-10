@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Studio</title>
+<style>
+/* Bố cục: thư viện giọng bên trái, hai tab tạo âm thanh bên phải; một cột khi màn hình hẹp. */
+:root {
+  --bg: #eef0ec; --panel: #f9faf7; --ink: #1b2422; --muted: #5d6a66; --line: #d5dad4;
+  --accent: #0a7466; --accent-ink: #fff; --danger: #b3341f; --ok: #1d7a3a;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root { color-scheme: dark;
+  --bg:#141a19; --panel:#1c2423; --ink:#e6ece9; --muted:#92a19c; --line:#2f3a38; --accent:#3fc2ad; --accent-ink:#07211d; --danger:#ff8a73; --ok:#6fd48c; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font); padding: 24px 16px 48px; }
+.wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 20px; }
+h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.01em; }
+header p { margin: 4px 0 0; color: var(--muted); }
+.grid { display: grid; grid-template-columns: 340px minmax(0,1fr); gap: 20px; align-items: start; }
+@media (max-width: 820px) { .grid { grid-template-columns: minmax(0,1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+h2 { margin: 0; font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
+label { display: grid; gap: 6px; font-weight: 500; font-size: .9rem; }
+input[type=text], select, textarea { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+textarea { min-height: 150px; resize: vertical; }
+textarea.mono { font-family: var(--mono); font-size: .8rem; min-height: 200px; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; }
+.check input { margin-top: 4px; accent-color: var(--accent); }
+.btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 9px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--danger); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs button { font: inherit; font-weight: 600; padding: 8px 14px; border: 0; background: none; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected=true] { color: var(--accent); border-color: var(--accent); }
+.voice { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px 10px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.voice b { overflow-wrap: anywhere; }
+.voice small { color: var(--muted); font-family: var(--mono); }
+.voice audio { grid-column: 1 / -1; width: 100%; height: 32px; }
+.msg { font-size: .88rem; color: var(--muted); min-height: 1.3em; }
+.msg.err { color: var(--danger); } .msg.ok { color: var(--ok); }
+.note { font-size: .82rem; color: var(--muted); margin: 0; }
+.rec { color: var(--danger); font-family: var(--mono); }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Voice Studio</h1>
+    <p>Tạo giọng từ một đoạn thu ngắn, rồi dùng giọng đó để đọc văn bản hoặc phụ đề. Mọi thứ xử lý ngay trên máy của bạn.</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-label="Thư viện giọng">
+      <h2>Thư viện giọng</h2>
+      <div id="voices" class="row" style="display:grid;gap:8px"></div>
+      <hr style="border:0;border-top:1px solid var(--line);width:100%;margin:2px 0">
+      <h2>Thêm giọng mới</h2>
+      <label for="vname">Tên giọng
+        <input type="text" id="vname" placeholder="Ví dụ: Giọng của tôi" maxlength="60">
+      </label>
+      <div class="row">
+        <input type="file" id="vfile" accept="audio/*" class="hidden">
+        <button class="btn" id="pick" type="button">Chọn file âm thanh</button>
+        <button class="btn" id="rec" type="button">● Thu âm</button>
+        <span class="rec hidden" id="recT">0:00</span>
+      </div>
+      <div class="msg" id="picked">Chưa có mẫu. Dùng đoạn nói rõ, 10–30 giây, ít tạp âm.</div>
+      <audio id="prev" controls class="hidden" style="width:100%"></audio>
+      <label class="check" for="consent">
+        <input type="checkbox" id="consent">
+        <span>Đây là giọng của tôi, hoặc chủ giọng đã đồng ý cho tôi tạo bản sao.</span>
+      </label>
+      <button class="btn primary" id="save" type="button">Lưu giọng</button>
+      <div class="msg" id="vmsg" aria-live="polite"></div>
+    </section>
+
+    <main class="panel" aria-label="Tạo âm thanh">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tabT" aria-selected="true" type="button">Đọc văn bản</button>
+        <button role="tab" id="tabS" aria-selected="false" type="button">Đọc phụ đề SRT</button>
+      </div>
+      <div class="row">
+        <label for="voice" style="flex:1 1 220px">Giọng
+          <select id="voice"></select>
+        </label>
+        <label for="fmt" style="flex:0 0 110px">Định dạng
+          <select id="fmt"><option value="mp3">MP3</option><option value="wav">WAV</option></select>
+        </label>
+      </div>
+
+      <div id="paneT" style="display:grid;gap:12px">
+        <label for="text">Nội dung
+          <textarea id="text">Xin chào, đây là giọng nói được tạo từ mẫu thu của tôi.</textarea>
+        </label>
+        <div class="row"><button class="btn primary" id="goT" type="button">Tạo âm thanh</button></div>
+      </div>
+
+      <div id="paneS" style="display:none;gap:12px">
+        <div class="row">
+          <input type="file" id="sfile" accept=".srt,.vtt,.txt" class="hidden">
+          <button class="btn" id="spick" type="button">Chọn file .srt / .vtt</button>
+          <span class="msg" id="scount"></span>
+        </div>
+        <label for="srt">Nội dung phụ đề
+          <textarea id="srt" class="mono" placeholder="1&#10;00:00:01,000 --> 00:00:04,000&#10;Xin chào các bạn."></textarea>
+        </label>
+        <div class="row">
+          <label for="smode" style="flex:1 1 200px">Cách ghép
+            <select id="smode">
+              <option value="timed">Đúng mốc thời gian trong file</option>
+              <option value="seq">Nối liền, cách nhau 0,3 giây</option>
+            </select>
+          </label>
+        </div>
+        <label class="check" for="sfit">
+          <input type="checkbox" id="sfit" checked>
+          <span>Tăng tốc câu đọc dài hơn khoảng thời gian cho phép (cần ffmpeg)</span>
+        </label>
+        <div class="row"><button class="btn primary" id="goS" type="button">Tạo âm thanh từ phụ đề</button></div>
+      </div>
+
+      <div class="msg" id="msg" aria-live="polite"></div>
+      <div id="result" style="display:none;gap:8px">
+        <audio id="out" controls style="width:100%"></audio>
+        <div class="row"><a class="btn" id="dl" download>Tải về</a></div>
+      </div>
+      <p class="note" id="ffnote"></p>
+    </main>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let sampleBlob = null, sampleName = "", recorder = null, recTimer = null;
+
+function setMsg(el, text, kind) { el.textContent = text || ""; el.className = "msg" + (kind ? " " + kind : ""); }
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) {
+    let d = "Có lỗi xảy ra.";
+    try { d = (await r.json()).detail || d; } catch (e) {}
+    throw new Error(d);
+  }
+  return r;
+}
+
+/* ---------- Thư viện giọng ---------- */
+async function loadVoices() {
+  const list = await (await api("/api/voices")).json();
+  const box = $("voices"), sel = $("voice"), prev = sel.value;
+  box.innerHTML = ""; sel.innerHTML = "";
+  if (!list.length) {
+    box.innerHTML = '<p class="note">Chưa có giọng nào. Thêm giọng đầu tiên ở bên dưới.</p>';
+    sel.innerHTML = '<option value="">Chưa có giọng</option>';
+    return;
+  }
+  list.forEach(v => {
+    const d = document.createElement("div"); d.className = "voice";
+    d.innerHTML = '<div><b></b><br><small></small></div><button class="btn danger" type="button">Xóa</button><audio controls preload="none"></audio>';
+    d.querySelector("b").textContent = v.name;
+    d.querySelector("small").textContent = v.seconds + " giây";
+    d.querySelector("audio").src = "/api/voices/" + v.id + "/sample";
+    d.querySelector("button").onclick = async () => {
+      if (!confirm("Xóa giọng \"" + v.name + "\"?")) return;
+      await api("/api/voices/" + v.id, { method: "DELETE" }); loadVoices();
+    };
+    box.appendChild(d);
+    const o = document.createElement("option"); o.value = v.id; o.textContent = v.name; sel.appendChild(o);
+  });
+  if (prev) sel.value = prev;
+}
+
+function setSample(blob, name) {
+  sampleBlob = blob; sampleName = name;
+  setMsg($("picked"), "Đã chọn: " + name);
+  const p = $("prev"); p.src = URL.createObjectURL(blob); p.classList.remove("hidden");
+}
+$("pick").onclick = () => $("vfile").click();
+$("vfile").onchange = e => { const f = e.target.files[0]; if (f) setSample(f, f.name); };
+
+$("rec").onclick = async () => {
+  if (recorder) { recorder.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const chunks = []; recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = e => chunks.push(e.data);
+    const t0 = Date.now();
+    recTimer = setInterval(() => {
+      const s = Math.floor((Date.now() - t0) / 1000);
+      $("recT").textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    }, 250);
+    recorder.onstop = () => {
+      clearInterval(recTimer); stream.getTracks().forEach(t => t.stop());
+      $("rec").textContent = "● Thu âm"; $("recT").classList.add("hidden");
+      setSample(new Blob(chunks, { type: recorder.mimeType }), "bản thu.webm"); recorder = null;
+    };
+    recorder.start(); $("rec").textContent = "■ Dừng"; $("recT").classList.remove("hidden");
+  } catch (e) { setMsg($("vmsg"), "Không mở được micro. Hãy cho phép quyền micro cho trang này.", "err"); }
+};
+
+$("save").onclick = async () => {
+  const name = $("vname").value.trim();
+  if (!name) return setMsg($("vmsg"), "Hãy đặt tên cho giọng.", "err");
+  if (!sampleBlob) return setMsg($("vmsg"), "Hãy chọn file hoặc thu âm một đoạn mẫu.", "err");
+  if (!$("consent").checked) return setMsg($("vmsg"), "Cần xác nhận quyền sử dụng giọng.", "err");
+  const fd = new FormData();
+  fd.append("name", name); fd.append("consent", "true"); fd.append("file", sampleBlob, sampleName);
+  $("save").disabled = true; setMsg($("vmsg"), "Đang lưu…");
+  try {
+    await api("/api/voices", { method: "POST", body: fd });
+    setMsg($("vmsg"), "Đã lưu giọng.", "ok");
+    $("vname").value = ""; sampleBlob = null; $("prev").classList.add("hidden");
+    setMsg($("picked"), "Chưa có mẫu. Dùng đoạn nói rõ, 10–30 giây, ít tạp âm."); $("consent").checked = false;
+    loadVoices();
+  } catch (e) { setMsg($("vmsg"), e.message, "err"); }
+  $("save").disabled = false;
+};
+
+/* ---------- Tabs ---------- */
+function tab(which) {
+  const t = which === "t";
+  $("tabT").setAttribute("aria-selected", t); $("tabS").setAttribute("aria-selected", !t);
+  $("paneT").style.display = t ? "grid" : "none"; $("paneS").style.display = t ? "none" : "grid";
+}
+$("tabT").onclick = () => tab("t"); $("tabS").onclick = () => tab("s");
+
+/* ---------- Tạo âm thanh ---------- */
+async function generate(url, fd, btn) {
+  if (!$("voice").value) return setMsg($("msg"), "Hãy thêm và chọn một giọng trước.", "err");
+  fd.append("voice_id", $("voice").value); fd.append("fmt", $("fmt").value);
+  btn.disabled = true; $("result").style.display = "none";
+  setMsg($("msg"), "Đang tạo âm thanh. Câu dài hoặc phụ đề nhiều dòng có thể mất vài phút…");
+  try {
+    const r = await api(url, { method: "POST", body: fd });
+    const blob = await r.blob();
+    const ext = blob.type.includes("mpeg") ? "mp3" : "wav";
+    const u = URL.createObjectURL(blob);
+    $("out").src = u; $("dl").href = u; $("dl").download = "voice-studio." + ext;
+    $("result").style.display = "grid"; setMsg($("msg"), "Xong.", "ok");
+    if ($("fmt").value === "mp3" && ext === "wav") setMsg($("msg"), "Xong. Máy chưa có ffmpeg nên kết quả là WAV.", "ok");
+  } catch (e) { setMsg($("msg"), e.message, "err"); }
+  btn.disabled = false;
+}
+$("goT").onclick = () => { const fd = new FormData(); fd.append("text", $("text").value); generate("/api/speak", fd, $("goT")); };
+$("goS").onclick = () => {
+  const fd = new FormData();
+  fd.append("text", $("srt").value); fd.append("mode", $("smode").value); fd.append("fit", $("sfit").checked);
+  generate("/api/srt", fd, $("goS"));
+};
+$("spick").onclick = () => $("sfile").click();
+async function countCues() {
+  const t = $("srt").value; if (!t.trim()) return setMsg($("scount"), "");
+  const fd = new FormData(); fd.append("text", t);
+  try { const j = await (await api("/api/parse", { method: "POST", body: fd })).json(); setMsg($("scount"), j.count + " câu thoại"); } catch (e) {}
+}
+$("sfile").onchange = async e => { const f = e.target.files[0]; if (f) { $("srt").value = await f.text(); countCues(); } };
+$("srt").addEventListener("change", countCues);
+
+fetch("/api/status").then(r => r.json()).then(s => {
+  if (!s.ffmpeg) $("ffnote").textContent = "Chưa tìm thấy ffmpeg. Vẫn dùng được file WAV; cài ffmpeg để xuất MP3, dùng ghi âm và tăng tốc câu dài.";
+});
+loadVoices();
+</script>
+</body>
+</html>
