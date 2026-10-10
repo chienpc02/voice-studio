@@ -46,9 +46,6 @@ textarea.mono { font-family: var(--mono); font-size: .8rem; min-height: 200px; }
 .msg.err { color: var(--danger); } .msg.ok { color: var(--ok); }
 .note { font-size: .82rem; color: var(--muted); margin: 0; }
 .rec { color: var(--danger); font-family: var(--mono); }
-.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
-.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
-.eta { font-variant-numeric: tabular-nums; color: var(--ink); }
 .hidden { display: none !important; }
 </style>
 </head>
@@ -126,14 +123,10 @@ textarea.mono { font-family: var(--mono); font-size: .8rem; min-height: 200px; }
           <input type="checkbox" id="sfit" checked>
           <span>Tăng tốc câu đọc dài hơn khoảng thời gian cho phép (cần ffmpeg)</span>
         </label>
-        <label for="smax">Tăng tốc tối đa: <b id="smaxv">1.8</b>x (cao hơn thì ít bị trễ nhưng giọng đọc nhanh hơn)
-          <input type="range" id="smax" min="1" max="2.5" step="0.1" value="1.8">
-        </label>
         <div class="row"><button class="btn primary" id="goS" type="button">Tạo âm thanh từ phụ đề</button></div>
       </div>
 
       <div class="msg" id="msg" aria-live="polite"></div>
-      <div class="bar hidden" id="bar" role="progressbar" aria-label="Tiến độ tạo âm thanh"><i id="barFill"></i></div>
       <div id="result" style="display:none;gap:8px">
         <audio id="out" controls style="width:100%"></audio>
         <div class="row"><a class="btn" id="dl" download>Tải về</a></div>
@@ -145,35 +138,6 @@ textarea.mono { font-family: var(--mono); font-size: .8rem; min-height: 200px; }
 
 <script>
 const $ = id => document.getElementById(id);
-
-/* ---------- Quản lý âm thanh: không để âm thanh cũ chạy ngầm ---------- */
-let outUrl = null, genId = 0;
-function stopAudio(a) { try { a.pause(); a.currentTime = 0; } catch (e) {} }
-function clearSample() {            // bỏ mẫu clone đang nghe thử
-  const p = $("prev"); stopAudio(p);
-  if (p.src.startsWith("blob:")) URL.revokeObjectURL(p.src);
-  p.removeAttribute("src"); p.load(); p.classList.add("hidden");
-}
-function clearResult() {            // bỏ kết quả đã tạo trước đó
-  const o = $("out"); stopAudio(o);
-  o.removeAttribute("src"); o.load();
-  if (outUrl) { URL.revokeObjectURL(outUrl); outUrl = null; }
-  $("dl").removeAttribute("href"); $("result").style.display = "none";
-}
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-const fmtT = sec => {                       // 75 -> "1:15", 3700 -> "1:01:40"
-  const s = Math.max(0, Math.round(sec)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
-  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s % 60).padStart(2, "0");
-};
-let jobId = null;
-function abortCurrent() {                   // huỷ công việc phụ đề đang chạy ở máy chủ
-  if (jobId) { fetch("/api/jobs/" + jobId, { method: "DELETE" }).catch(() => {}); jobId = null; }
-  $("bar").classList.add("hidden"); $("barFill").style.width = "0";
-}
-// Chỉ một trình phát chạy tại một thời điểm: bấm phát cái nào thì các cái khác tự dừng.
-document.addEventListener("play", e => {
-  document.querySelectorAll("audio").forEach(a => { if (a !== e.target) a.pause(); });
-}, true);
 let sampleBlob = null, sampleName = "", recorder = null, recTimer = null;
 
 function setMsg(el, text, kind) { el.textContent = text || ""; el.className = "msg" + (kind ? " " + kind : ""); }
@@ -191,7 +155,6 @@ async function api(url, opts) {
 async function loadVoices() {
   const list = await (await api("/api/voices")).json();
   const box = $("voices"), sel = $("voice"), prev = sel.value;
-  box.querySelectorAll("audio").forEach(stopAudio);
   box.innerHTML = ""; sel.innerHTML = "";
   if (!list.length) {
     box.innerHTML = '<p class="note">Chưa có giọng nào. Thêm giọng đầu tiên ở bên dưới.</p>';
@@ -217,9 +180,7 @@ async function loadVoices() {
 function setSample(blob, name) {
   sampleBlob = blob; sampleName = name;
   setMsg($("picked"), "Đã chọn: " + name);
-  const p = $("prev"); stopAudio(p);
-  if (p.src.startsWith("blob:")) URL.revokeObjectURL(p.src);
-  p.src = URL.createObjectURL(blob); p.classList.remove("hidden");
+  const p = $("prev"); p.src = URL.createObjectURL(blob); p.classList.remove("hidden");
 }
 $("pick").onclick = () => $("vfile").click();
 $("vfile").onchange = e => { const f = e.target.files[0]; if (f) setSample(f, f.name); };
@@ -251,12 +212,11 @@ $("save").onclick = async () => {
   if (!$("consent").checked) return setMsg($("vmsg"), "Cần xác nhận quyền sử dụng giọng.", "err");
   const fd = new FormData();
   fd.append("name", name); fd.append("consent", "true"); fd.append("file", sampleBlob, sampleName);
-  stopAudio($("prev"));
   $("save").disabled = true; setMsg($("vmsg"), "Đang lưu…");
   try {
     await api("/api/voices", { method: "POST", body: fd });
     setMsg($("vmsg"), "Đã lưu giọng.", "ok");
-    $("vname").value = ""; sampleBlob = null; clearSample();
+    $("vname").value = ""; sampleBlob = null; $("prev").classList.add("hidden");
     setMsg($("picked"), "Chưa có mẫu. Dùng đoạn nói rõ, 10–30 giây, ít tạp âm."); $("consent").checked = false;
     loadVoices();
   } catch (e) { setMsg($("vmsg"), e.message, "err"); }
@@ -275,98 +235,32 @@ $("tabT").onclick = () => tab("t"); $("tabS").onclick = () => tab("s");
 async function generate(url, fd, btn) {
   if (!$("voice").value) return setMsg($("msg"), "Hãy thêm và chọn một giọng trước.", "err");
   fd.append("voice_id", $("voice").value); fd.append("fmt", $("fmt").value);
-  const myId = ++genId;               // nếu có yêu cầu mới hơn thì kết quả này bị bỏ
-  clearResult(); stopAudio($("prev"));
-  btn.disabled = true;
-  const t0 = Date.now();
-  const tick = setInterval(() => setMsg($("msg"), "Đang tạo âm thanh… đã chạy " + fmtT((Date.now() - t0) / 1000)), 500);
-  setMsg($("msg"), "Đang tạo âm thanh… đã chạy 0:00");
+  btn.disabled = true; $("result").style.display = "none";
+  setMsg($("msg"), "Đang tạo âm thanh. Câu dài hoặc phụ đề nhiều dòng có thể mất vài phút…");
   try {
     const r = await api(url, { method: "POST", body: fd });
     const blob = await r.blob();
-    if (myId !== genId) return;       // đã đổi file/yêu cầu khác trong lúc chờ
     const ext = blob.type.includes("mpeg") ? "mp3" : "wav";
-    outUrl = URL.createObjectURL(blob);
-    $("out").src = outUrl; $("dl").href = outUrl; $("dl").download = "voice-studio." + ext;
+    const u = URL.createObjectURL(blob);
+    $("out").src = u; $("dl").href = u; $("dl").download = "voice-studio." + ext;
     $("result").style.display = "grid"; setMsg($("msg"), "Xong.", "ok");
     if ($("fmt").value === "mp3" && ext === "wav") setMsg($("msg"), "Xong. Máy chưa có ffmpeg nên kết quả là WAV.", "ok");
-  } catch (e) { if (myId === genId) setMsg($("msg"), e.message, "err"); }
-  finally { clearInterval(tick); }
-  if (myId === genId) btn.disabled = false;
-}
-
-/* ---------- Phụ đề: chạy nền, có đếm ngược thời gian còn lại ---------- */
-function renderProgress(st) {
-  const { done, total, elapsed, marks } = st;
-  $("bar").classList.remove("hidden");
-  $("barFill").style.width = (total ? done / total * 100 : 0) + "%";
-  let eta = "đang ước tính…";
-  if (marks.length >= 2) {                  // tốc độ trung bình của các câu gần nhất
-    const rate = (marks[marks.length - 1] - marks[0]) / (marks.length - 1);
-    eta = "khoảng " + fmtT(Math.max(0, rate * (total - done) - (elapsed - marks[marks.length - 1])));
-  } else if (done >= total) eta = "0:00";
-  const el = $("msg"); el.className = "msg";
-  el.innerHTML = "";
-  const b = document.createElement("span"); b.className = "eta";
-  b.textContent = "Câu " + done + "/" + total + " · đã chạy " + fmtT(elapsed) + " · còn lại " + eta;
-  el.appendChild(b);
-}
-async function generateSrt(fd, btn) {
-  if (!$("voice").value) return setMsg($("msg"), "Hãy thêm và chọn một giọng trước.", "err");
-  fd.append("voice_id", $("voice").value); fd.append("fmt", $("fmt").value);
-  const myId = ++genId;
-  abortCurrent(); clearResult(); stopAudio($("prev"));
-  btn.disabled = true; setMsg($("msg"), "Đang gửi phụ đề…");
-  try {
-    const j = await (await api("/api/srt/start", { method: "POST", body: fd })).json();
-    if (myId !== genId) { fetch("/api/jobs/" + j.job_id, { method: "DELETE" }).catch(() => {}); return; }
-    jobId = j.job_id;
-    renderProgress({ done: 0, total: j.total, elapsed: 0, marks: [] });
-    let st;
-    for (;;) {
-      await sleep(700);
-      if (myId !== genId) return;
-      st = await (await api("/api/jobs/" + j.job_id)).json();
-      if (myId !== genId) return;
-      if (st.state !== "running") break;
-      renderProgress(st);
-    }
-    if (st.state === "error") throw new Error(st.error || "Có lỗi khi tạo âm thanh.");
-    if (st.state === "cancelled") { setMsg($("msg"), "Đã hủy."); return; }
-    const blob = await (await api("/api/jobs/" + j.job_id + "/result")).blob();
-    if (myId !== genId) return;
-    const ext = blob.type.includes("mpeg") ? "mp3" : "wav";
-    outUrl = URL.createObjectURL(blob);
-    $("out").src = outUrl; $("dl").href = outUrl; $("dl").download = "voice-studio." + ext;
-    $("result").style.display = "grid";
-    const sx = st.stats || {};
-    const info = sx.srt_sec ? " File dài " + fmtT(sx.out_sec) + ", phụ đề dài " + fmtT(sx.srt_sec) +
-      (sx.late ? "; " + sx.late + " câu không kịp (trễ nhất " + sx.worst + " giây). Thử tăng tốc tối đa hoặc rút gọn lời." : ".") : "";
-    setMsg($("msg"), "Xong sau " + fmtT(st.elapsed) + "." + info + (($("fmt").value === "mp3" && ext === "wav") ? " Máy chưa có ffmpeg nên kết quả là WAV." : ""), "ok");
-  } catch (e) { if (myId === genId) setMsg($("msg"), e.message, "err"); }
-  finally { if (myId === genId) { jobId = null; $("bar").classList.add("hidden"); btn.disabled = false; } }
+  } catch (e) { setMsg($("msg"), e.message, "err"); }
+  btn.disabled = false;
 }
 $("goT").onclick = () => { const fd = new FormData(); fd.append("text", $("text").value); generate("/api/speak", fd, $("goT")); };
 $("goS").onclick = () => {
   const fd = new FormData();
-  fd.append("text", $("srt").value); fd.append("mode", $("smode").value); fd.append("fit", $("sfit").checked); fd.append("max_speed", $("smax").value);
-  generateSrt(fd, $("goS"));
+  fd.append("text", $("srt").value); fd.append("mode", $("smode").value); fd.append("fit", $("sfit").checked);
+  generate("/api/srt", fd, $("goS"));
 };
-$("smax").oninput = () => { $("smaxv").textContent = $("smax").value; };
 $("spick").onclick = () => $("sfile").click();
 async function countCues() {
   const t = $("srt").value; if (!t.trim()) return setMsg($("scount"), "");
   const fd = new FormData(); fd.append("text", t);
   try { const j = await (await api("/api/parse", { method: "POST", body: fd })).json(); setMsg($("scount"), j.count + " câu thoại"); } catch (e) {}
 }
-$("sfile").onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  genId++; abortCurrent();            // huỷ kết quả của file phụ đề trước (đang tạo hoặc đang phát)
-  clearResult(); setMsg($("msg"), "");
-  $("goS").disabled = false; $("goT").disabled = false;
-  $("srt").value = await f.text(); countCues();
-  e.target.value = "";                // cho phép chọn lại cùng một file
-};
+$("sfile").onchange = async e => { const f = e.target.files[0]; if (f) { $("srt").value = await f.text(); countCues(); } };
 $("srt").addEventListener("change", countCues);
 
 fetch("/api/status").then(r => r.json()).then(s => {

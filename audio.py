@@ -2,21 +2,10 @@
 import io
 import shutil
 import subprocess
-import sys
-from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-def _find_ffmpeg():
-    base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
-    for name in ("ffmpeg.exe", "ffmpeg"):
-        p = base / name
-        if p.is_file():
-            return str(p)
-    return shutil.which("ffmpeg")
-
-
-FFMPEG = _find_ffmpeg()
+FFMPEG = shutil.which("ffmpeg")
 
 
 def to_wav_file(src_path: str, dst_path: str):
@@ -40,14 +29,8 @@ def speed_up(audio: np.ndarray, sr: int, factor: float) -> np.ndarray:
         return audio
     buf = io.BytesIO()
     sf.write(buf, audio, sr, format="WAV")
-    # atempo chỉ nhận tối đa 2,0 mỗi lần nên hệ số lớn hơn thì nối nhiều bước
-    steps, f = [], factor
-    while f > 2.0:
-        steps.append("atempo=2.0")
-        f /= 2.0
-    steps.append(f"atempo={f:.3f}")
     p = subprocess.run(
-        [FFMPEG, "-i", "pipe:0", "-filter:a", ",".join(steps), "-f", "wav", "pipe:1"],
+        [FFMPEG, "-i", "pipe:0", "-filter:a", f"atempo={factor:.3f}", "-f", "wav", "pipe:1"],
         input=buf.getvalue(), capture_output=True)
     if p.returncode != 0:
         return audio

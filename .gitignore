@@ -4,10 +4,3 @@ __pycache__/
 ffmpeg.exe
 voices/
 output/
-
-.env
-build/
-dist/
-.buildenv/
-*.spec
-.idea/
