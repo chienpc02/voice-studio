@@ -8,12 +8,14 @@
 /* Bố cục: thư viện giọng bên trái, hai tab tạo âm thanh bên phải; một cột khi màn hình hẹp. */
 :root {
   --bg: #eef0ec; --panel: #f9faf7; --ink: #1b2422; --muted: #5d6a66; --line: #d5dad4;
-  --accent: #0a7466; --accent-ink: #fff; --danger: #b3341f; --ok: #1d7a3a;
+  --accent: #0a7466; --accent2: #17a58e; --accent-ink: #fff; --danger: #b3341f; --ok: #1d7a3a;
+  --ok-bg: #e2f3e7; --warn: #8a5d00; --warn-bg: #fdf0cc; --bad: #a3321e; --bad-bg: #fbe5e0;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) { :root { color-scheme: dark;
-  --bg:#141a19; --panel:#1c2423; --ink:#e6ece9; --muted:#92a19c; --line:#2f3a38; --accent:#3fc2ad; --accent-ink:#07211d; --danger:#ff8a73; --ok:#6fd48c; } }
+  --bg:#141a19; --panel:#1c2423; --ink:#e6ece9; --muted:#92a19c; --line:#2f3a38; --accent:#3fc2ad; --accent2:#7ee3d2; --accent-ink:#07211d; --danger:#ff8a73; --ok:#6fd48c;
+  --ok-bg:#17301f; --warn:#f0c36a; --warn-bg:#3a2f12; --bad:#ff9d89; --bad-bg:#3a1d19; } }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font); padding: 24px 16px 48px; }
 .wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 20px; }
@@ -49,6 +51,39 @@ textarea.mono { font-family: var(--mono); font-size: .8rem; min-height: 200px; }
 .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
 .eta { font-variant-numeric: tabular-nums; color: var(--ink); }
+/* Giao diện đọc phụ đề theo từng bước */
+.drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 28px 16px; text-align: center; cursor: pointer; display: grid; gap: 4px; color: var(--muted); }
+.drop:hover, .drop.over { border-color: var(--accent); color: var(--ink); }
+.drop b { color: var(--ink); font-size: 1.05rem; }
+.shead { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start; justify-content: space-between; }
+.shead h3 { margin: 0; font-size: 1.35rem; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.shead .meta { color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.notice { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: .88rem; font-weight: 600; }
+.step { display: flex; gap: 10px; align-items: center; font-weight: 700; margin: 4px 0 -2px; }
+.step i { font-style: normal; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: .85rem; }
+.vcard { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; background: var(--panel); font-weight: 600; font-size: .9rem; }
+.vcard small { color: var(--muted); font-family: var(--mono); font-weight: 400; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: inherit; font-size: .85rem; font-weight: 600; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.chip[aria-pressed=true] { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
+.btn.small { padding: 5px 12px; font-size: .84rem; }
+.btn.ghost { background: transparent; color: var(--accent); border-color: var(--line); }
+.cta { width: 100%; font: inherit; font-weight: 700; font-size: 1.05rem; border: 0; border-radius: 10px; padding: 14px; cursor: pointer; color: var(--accent-ink); background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.cta:disabled { opacity: .5; cursor: not-allowed; }
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; align-items: end; }
+.est { font-size: .84rem; color: var(--muted); margin: -4px 0 0; font-variant-numeric: tabular-nums; }
+details.cues { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+details.cues > summary { cursor: pointer; font-weight: 700; color: var(--muted); }
+.cuelist { display: grid; gap: 0; max-height: 560px; overflow-y: auto; margin-top: 10px; }
+.cue { display: grid; gap: 6px; padding: 12px 4px; border-top: 1px solid var(--line); }
+.cue:first-child { border-top: 0; }
+.cue-h { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; color: var(--muted); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.badge { font-family: var(--font); font-weight: 700; font-size: .72rem; border-radius: 999px; padding: 1px 9px; }
+.badge.ok { background: var(--ok-bg); color: var(--ok); } .badge.warn { background: var(--warn-bg); color: var(--warn); } .badge.bad { background: var(--bad-bg); color: var(--bad); }
+.cue textarea { min-height: 0; resize: vertical; }
+.cue-f { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cue-f select { width: auto; max-width: 200px; padding: 4px 8px; font-size: .84rem; }
+.cue-done { font-size: .78rem; color: var(--ok); font-weight: 600; }
 .hidden { display: none !important; }
 </style>
 </head>
@@ -89,7 +124,7 @@ textarea.mono { font-family: var(--mono); font-size: .8rem; min-height: 200px; }
         <button role="tab" id="tabT" aria-selected="true" type="button">Đọc văn bản</button>
         <button role="tab" id="tabS" aria-selected="false" type="button">Đọc phụ đề SRT</button>
       </div>
-      <div class="row">
+      <div class="row" id="sharedRow">
         <label for="voice" style="flex:1 1 220px">Giọng
           <select id="voice"></select>
         </label>
@@ -105,28 +140,78 @@ textarea.mono { font-family: var(--mono); font-size: .8rem; min-height: 200px; }
         <div class="row"><button class="btn primary" id="goT" type="button">Tạo âm thanh</button></div>
       </div>
 
-      <div id="paneS" style="display:none;gap:12px">
-        <div class="row">
+      <div id="paneS" style="display:none;gap:14px">
+        <div id="sempty" style="display:grid;gap:12px">
           <input type="file" id="sfile" accept=".srt,.vtt,.txt" class="hidden">
-          <button class="btn" id="spick" type="button">Chọn file .srt / .vtt</button>
-          <span class="msg" id="scount"></span>
+          <div class="drop" id="sdrop" tabindex="0" role="button" aria-label="Chọn file phụ đề">
+            <b>Chọn hoặc kéo thả file phụ đề</b>
+            <span>.srt, .vtt</span>
+          </div>
+          <details>
+            <summary class="note" style="cursor:pointer">Hoặc dán nội dung phụ đề</summary>
+            <div style="display:grid;gap:8px;margin-top:8px">
+              <textarea id="spaste" class="mono" placeholder="1&#10;00:00:01,000 --> 00:00:04,000&#10;Xin chào các bạn."></textarea>
+              <div class="row"><button class="btn" id="spasteGo" type="button">Dùng nội dung đã dán</button></div>
+            </div>
+          </details>
+          <div class="msg" id="semptyMsg" aria-live="polite"></div>
         </div>
-        <label for="srt">Nội dung phụ đề
-          <textarea id="srt" class="mono" placeholder="1&#10;00:00:01,000 --> 00:00:04,000&#10;Xin chào các bạn."></textarea>
-        </label>
-        <div class="row">
-          <label for="smode" style="flex:1 1 200px">Cách ghép
-            <select id="smode">
-              <option value="timed">Đúng mốc thời gian trong file</option>
-              <option value="seq">Nối liền, cách nhau 0,3 giây</option>
-            </select>
+
+        <div id="sloaded" class="hidden" style="display:none;gap:14px">
+          <div class="shead">
+            <div>
+              <h3 id="sname">Phụ đề</h3>
+              <div class="meta" id="smeta"></div>
+            </div>
+            <button class="btn small" id="schange" type="button">Đổi tệp</button>
+          </div>
+          <div class="notice" id="snotice"></div>
+          <label class="check" for="smerge">
+            <input type="checkbox" id="smerge" checked>
+            <span>Gộp các dòng bị cắt vụn thành câu trọn vẹn (đọc tự nhiên hơn)</span>
           </label>
+
+          <div class="step"><i>1</i> Chọn giọng đọc</div>
+          <div class="row">
+            <span class="vcard" id="svcard">Chưa có giọng</span>
+            <button class="btn small ghost" id="stry" type="button">▶ Nghe thử một câu</button>
+          </div>
+          <div class="note">Hoặc thử nhanh:</div>
+          <div class="chips" id="schips"></div>
+
+          <div class="step"><i>2</i> Tạo audio</div>
+          <div class="opts">
+            <label for="smode">Cách ghép
+              <select id="smode">
+                <option value="timed">Đúng mốc thời gian trong file</option>
+                <option value="seq">Nối liền, cách nhau 0,3 giây</option>
+              </select>
+            </label>
+            <label for="sfmt">Định dạng
+              <select id="sfmt"><option value="mp3">MP3</option><option value="wav">WAV</option></select>
+            </label>
+          </div>
+          <label class="check" for="sfit">
+            <input type="checkbox" id="sfit" checked>
+            <span>Tăng tốc câu đọc dài hơn khoảng thời gian cho phép (cần ffmpeg)</span>
+          </label>
+          <button class="cta" id="goS" type="button">Tạo audio</button>
+          <p class="est" id="sest"></p>
+
+          <div class="msg" id="smsg" aria-live="polite"></div>
+          <div class="bar hidden" id="sbar" role="progressbar" aria-label="Tiến độ tạo audio"><i id="sbarFill"></i></div>
+          <div id="sresult" style="display:none;gap:8px">
+            <audio id="sout" controls style="width:100%"></audio>
+            <div class="row"><a class="btn" id="sdl" download>Tải về</a></div>
+          </div>
+
+          <details class="cues" id="scues">
+            <summary id="scuesSum">Xem &amp; sửa từng câu</summary>
+            <p class="note" style="margin-top:8px">Sửa nội dung, nghe riêng từng câu, hoặc cho câu đó một giọng khác. Câu đã lồng tiếng sẽ được dùng lại khi tạo toàn bộ.</p>
+            <div class="cuelist" id="scueList"></div>
+          </details>
+          <audio id="pv" class="hidden"></audio>
         </div>
-        <label class="check" for="sfit">
-          <input type="checkbox" id="sfit" checked>
-          <span>Tăng tốc câu đọc dài hơn khoảng thời gian cho phép (cần ffmpeg)</span>
-        </label>
-        <div class="row"><button class="btn primary" id="goS" type="button">Tạo âm thanh từ phụ đề</button></div>
       </div>
 
       <div class="msg" id="msg" aria-live="polite"></div>
@@ -165,7 +250,7 @@ const fmtT = sec => {                       // 75 -> "1:15", 3700 -> "1:01:40"
 let jobId = null;
 function abortCurrent() {                   // huỷ công việc phụ đề đang chạy ở máy chủ
   if (jobId) { fetch("/api/jobs/" + jobId, { method: "DELETE" }).catch(() => {}); jobId = null; }
-  $("bar").classList.add("hidden"); $("barFill").style.width = "0";
+  $("sbar").classList.add("hidden"); $("sbarFill").style.width = "0";
 }
 // Chỉ một trình phát chạy tại một thời điểm: bấm phát cái nào thì các cái khác tự dừng.
 document.addEventListener("play", e => {
@@ -189,8 +274,10 @@ async function loadVoices() {
   const list = await (await api("/api/voices")).json();
   const box = $("voices"), sel = $("voice"), prev = sel.value;
   box.querySelectorAll("audio").forEach(stopAudio);
+  voiceList = list;
   box.innerHTML = ""; sel.innerHTML = "";
   if (!list.length) {
+    renderSrtVoices();
     box.innerHTML = '<p class="note">Chưa có giọng nào. Thêm giọng đầu tiên ở bên dưới.</p>';
     sel.innerHTML = '<option value="">Chưa có giọng</option>';
     return;
@@ -209,6 +296,7 @@ async function loadVoices() {
     const o = document.createElement("option"); o.value = v.id; o.textContent = v.name; sel.appendChild(o);
   });
   if (prev) sel.value = prev;
+  renderSrtVoices();
 }
 
 function setSample(blob, name) {
@@ -265,6 +353,7 @@ function tab(which) {
   const t = which === "t";
   $("tabT").setAttribute("aria-selected", t); $("tabS").setAttribute("aria-selected", !t);
   $("paneT").style.display = t ? "grid" : "none"; $("paneS").style.display = t ? "none" : "grid";
+  $("sharedRow").style.display = t ? "" : "none";
 }
 $("tabT").onclick = () => tab("t"); $("tabS").onclick = () => tab("s");
 
@@ -273,7 +362,7 @@ async function generate(url, fd, btn) {
   if (!$("voice").value) return setMsg($("msg"), "Hãy thêm và chọn một giọng trước.", "err");
   fd.append("voice_id", $("voice").value); fd.append("fmt", $("fmt").value);
   const myId = ++genId;               // nếu có yêu cầu mới hơn thì kết quả này bị bỏ
-  clearResult(); stopAudio($("prev"));
+  abortCurrent(); clearResult(); stopAudio($("prev"));
   btn.disabled = true;
   const t0 = Date.now();
   const tick = setInterval(() => setMsg($("msg"), "Đang tạo âm thanh… đã chạy " + fmtT((Date.now() - t0) / 1000)), 500);
@@ -292,28 +381,191 @@ async function generate(url, fd, btn) {
   if (myId === genId) btn.disabled = false;
 }
 
-/* ---------- Phụ đề: chạy nền, có đếm ngược thời gian còn lại ---------- */
+$("goT").onclick = () => { const fd = new FormData(); fd.append("text", $("text").value); generate("/api/speak", fd, $("goT")); };
+/* ---------- Đọc phụ đề: từng bước, gộp câu, sửa từng câu ---------- */
+let voiceList = [];
+const S = { name: "", raw: "", rawCount: 0, cues: [], duration: 0, voice: "", parseId: 0 };
+const CPS = 14;                              // ước lượng số ký tự đọc được mỗi giây ở tốc độ thường
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+
+function showSrt(loaded) {
+  $("sempty").style.display = loaded ? "none" : "grid";
+  const l = $("sloaded"); l.classList.toggle("hidden", !loaded); l.style.display = loaded ? "grid" : "none";
+}
+
+/* --- chọn giọng --- */
+function voiceName(id) { const v = voiceList.find(x => x.id === id); return v ? v.name : ""; }
+function renderSrtVoices() {
+  if (!voiceList.some(v => v.id === S.voice)) S.voice = voiceList.length ? voiceList[0].id : "";
+  const v = voiceList.find(x => x.id === S.voice);
+  const card = $("svcard"); card.textContent = "";
+  if (v) {
+    card.append(v.name + " ");
+    const sm = document.createElement("small"); sm.textContent = v.seconds + " giây"; card.appendChild(sm);
+  } else card.textContent = "Chưa có giọng. Hãy thêm giọng ở thư viện bên trái.";
+  const box = $("schips"); box.innerHTML = "";
+  voiceList.forEach(x => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = x.name;
+    b.setAttribute("aria-pressed", x.id === S.voice);
+    b.onclick = () => { S.voice = x.id; renderSrtVoices(); fillCueVoiceLabels(); };
+    box.appendChild(b);
+  });
+  $("goS").disabled = !v || !S.cues.length; $("stry").disabled = !v || !S.cues.length;
+  if (S.cues.length) renderCueVoices();
+}
+
+/* --- đọc thử một câu (dùng chung cho nút ở bước 1 và từng câu) --- */
+async function previewText(text, voiceId, btn) {
+  if (!voiceId) return setMsg($("smsg"), "Hãy thêm và chọn một giọng trước.", "err");
+  const label = btn.textContent; btn.disabled = true; btn.textContent = "Đang đọc…";
+  const fd = new FormData(); fd.append("text", text); fd.append("voice_id", voiceId); fd.append("fmt", "wav");
+  try {
+    const blob = await (await api("/api/speak", { method: "POST", body: fd })).blob();
+    const pv = $("pv"); stopAudio(pv);
+    if (pv.src.startsWith("blob:")) URL.revokeObjectURL(pv.src);
+    pv.src = URL.createObjectURL(blob); await pv.play();
+    return true;
+  } catch (e) { setMsg($("smsg"), e.message, "err"); }
+  finally { btn.disabled = false; btn.textContent = label; }
+}
+$("stry").onclick = async () => {
+  const c = S.cues[0]; if (!c) return;
+  if (await previewText(c.text, c.voice || S.voice, $("stry"))) { c.done = true; markCueDone(0); }
+};
+
+/* --- danh sách từng câu --- */
+function badgeFor(c) {
+  const slot = Math.max(0.3, (c.end - c.start) / 1000), est = c.text.length / CPS, r = est / slot;
+  if (r <= 1.05) return ["ok", "vừa"];
+  if (r <= 1.6) return ["warn", "hơi dài"];
+  return ["bad", "quá dài"];
+}
+function setBadge(el, c) { const [k, t] = badgeFor(c); el.className = "badge " + k; el.textContent = t; }
+function cueEl(i) { return $("scueList").children[i]; }
+function markCueDone(i) { const e = cueEl(i); if (e) e.querySelector(".cue-done").classList.toggle("hidden", !S.cues[i].done); }
+function fillCueVoiceLabels() {
+  document.querySelectorAll("#scueList .cue-voice").forEach(sel => { if (sel.options[0]) sel.options[0].textContent = "Giọng chung: " + voiceName(S.voice); });
+}
+function renderCueVoices() {
+  document.querySelectorAll("#scueList .cue").forEach((el, i) => {
+    const sel = el.querySelector(".cue-voice"), cur = S.cues[i].voice || "";
+    sel.innerHTML = "";
+    const o0 = document.createElement("option"); o0.value = ""; o0.textContent = "Giọng chung: " + voiceName(S.voice); sel.appendChild(o0);
+    voiceList.forEach(v => { const o = document.createElement("option"); o.value = v.id; o.textContent = v.name; sel.appendChild(o); });
+    sel.value = voiceList.some(v => v.id === cur) ? cur : ""; if (sel.value !== cur) S.cues[i].voice = sel.value;
+  });
+}
+function renderCues() {
+  const list = $("scueList"); list.innerHTML = "";
+  $("scuesSum").textContent = "Xem & sửa từng câu (" + S.cues.length + ")";
+  if (!$("scues").open) return;               // chỉ vẽ khi mở, tránh nặng với phụ đề dài
+  const frag = document.createDocumentFragment();
+  S.cues.forEach((c, i) => {
+    const d = document.createElement("div"); d.className = "cue";
+    d.innerHTML = '<div class="cue-h"><span></span><span class="badge"></span></div><textarea rows="2"></textarea>' +
+      '<div class="cue-f"><select class="cue-voice" aria-label="Giọng cho câu này"></select>' +
+      '<button class="btn small ghost cue-play" type="button">▶ Nghe thử câu này</button><span class="cue-done hidden">đã lồng tiếng</span></div>';
+    d.querySelector(".cue-h span").textContent = "#" + (i + 1) + " · " + fmtT(c.start / 1000) + "–" + fmtT(c.end / 1000);
+    const ta = d.querySelector("textarea"); ta.value = c.text; ta.rows = Math.min(6, Math.max(2, Math.ceil(c.text.length / 90)));
+    setBadge(d.querySelector(".badge"), c);
+    ta.oninput = () => { c.text = ta.value; c.done = false; markCueDone(i); setBadge(d.querySelector(".badge"), c); renderEstimate(); };
+    d.querySelector(".cue-voice").onchange = e => { c.voice = e.target.value; c.done = false; markCueDone(i); };
+    d.querySelector(".cue-play").onclick = async e => {
+      if (await previewText(c.text, c.voice || S.voice, e.target)) { c.done = true; markCueDone(i); }
+    };
+    frag.appendChild(d);
+  });
+  list.appendChild(frag); renderCueVoices(); S.cues.forEach((c, i) => c.done && markCueDone(i));
+}
+$("scues").addEventListener("toggle", () => { if ($("scues").open) renderCues(); });
+
+/* --- ước lượng thời gian tạo --- */
+function renderEstimate() {
+  const chars = S.cues.reduce((n, c) => n + c.text.length, 0), rate = parseFloat(store.get("vs_sec_per_char"));
+  $("sest").textContent = rate > 0
+    ? "⏱ Khoảng " + fmtT(rate * chars) + " để tạo " + S.cues.length + " câu"
+    : S.cues.length + " câu. Lần chạy đầu sẽ đo tốc độ để ước tính thời gian cho lần sau.";
+}
+
+/* --- nạp và gộp phụ đề --- */
+async function parseSrt() {
+  const myParse = ++S.parseId;
+  const fd = new FormData(); fd.append("text", S.raw); fd.append("merge", $("smerge").checked);
+  const j = await (await api("/api/parse", { method: "POST", body: fd })).json();
+  if (myParse !== S.parseId) return false;
+  if (!j.count) throw new Error("Không đọc được câu thoại nào. Kiểm tra lại định dạng .srt / .vtt.");
+  S.cues = j.cues.map(c => ({ start: c.start, end: c.end, text: c.text, voice: "", done: false }));
+  S.rawCount = j.raw_count; S.duration = j.duration_ms;
+  $("sname").textContent = S.name || "Phụ đề";
+  $("smeta").textContent = S.rawCount + " dòng · " + S.cues.length + " câu · " + fmtT(S.duration / 1000);
+  $("snotice").textContent = $("smerge").checked && S.rawCount > S.cues.length
+    ? "Đã gộp " + S.rawCount + " dòng phụ đề bị cắt vụn thành " + S.cues.length + " câu trọn vẹn để giọng đọc tự nhiên hơn."
+    : "Giữ nguyên " + S.cues.length + " dòng như trong file.";
+  showSrt(true); renderSrtVoices(); renderCues(); renderEstimate();
+  return true;
+}
+async function loadSrt(text, name) {
+  genId++; abortCurrent(); clearSrtResult(); setMsg($("smsg"), "");
+  S.raw = text; S.name = name;
+  try { await parseSrt(); setMsg($("semptyMsg"), ""); }
+  catch (e) { showSrt(false); setMsg($("semptyMsg"), e.message, "err"); }
+}
+$("smerge").onchange = async () => {
+  genId++; abortCurrent(); clearSrtResult(); setMsg($("smsg"), "");
+  try { await parseSrt(); } catch (e) { setMsg($("smsg"), e.message, "err"); }
+};
+async function readFile(f) { if (f) { const t = await f.text(); loadSrt(t, f.name); } }
+const drop = $("sdrop");
+drop.onclick = () => $("sfile").click();
+drop.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("sfile").click(); } };
+$("sfile").onchange = async e => { await readFile(e.target.files[0]); e.target.value = ""; };
+["dragenter", "dragover"].forEach(n => drop.addEventListener(n, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(n => drop.addEventListener(n, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => readFile(e.dataTransfer.files[0]));
+$("spasteGo").onclick = () => loadSrt($("spaste").value, "");
+$("schange").onclick = () => {                // quay về màn chọn tệp, bỏ kết quả và công việc cũ
+  genId++; abortCurrent(); clearSrtResult(); stopAudio($("pv"));
+  S.cues = []; showSrt(false); setMsg($("smsg"), "");
+};
+
+/* --- tạo audio: chạy nền, đếm ngược thời gian còn lại --- */
+function clearSrtResult() {
+  const o = $("sout"); stopAudio(o); o.removeAttribute("src"); o.load();
+  if (srtUrl) { URL.revokeObjectURL(srtUrl); srtUrl = null; }
+  $("sdl").removeAttribute("href"); $("sresult").style.display = "none";
+}
+let srtUrl = null;
 function renderProgress(st) {
   const { done, total, elapsed, marks } = st;
-  $("bar").classList.remove("hidden");
-  $("barFill").style.width = (total ? done / total * 100 : 0) + "%";
+  $("sbar").classList.remove("hidden");
+  $("sbarFill").style.width = (total ? done / total * 100 : 0) + "%";
   let eta = "đang ước tính…";
-  if (marks.length >= 2) {                  // tốc độ trung bình của các câu gần nhất
+  if (marks.length >= 2) {                    // tốc độ trung bình của các câu gần nhất
     const rate = (marks[marks.length - 1] - marks[0]) / (marks.length - 1);
     eta = "khoảng " + fmtT(Math.max(0, rate * (total - done) - (elapsed - marks[marks.length - 1])));
   } else if (done >= total) eta = "0:00";
-  const el = $("msg"); el.className = "msg";
-  el.innerHTML = "";
+  const el = $("smsg"); el.className = "msg"; el.textContent = "";
   const b = document.createElement("span"); b.className = "eta";
   b.textContent = "Câu " + done + "/" + total + " · đã chạy " + fmtT(elapsed) + " · còn lại " + eta;
   el.appendChild(b);
 }
-async function generateSrt(fd, btn) {
-  if (!$("voice").value) return setMsg($("msg"), "Hãy thêm và chọn một giọng trước.", "err");
-  fd.append("voice_id", $("voice").value); fd.append("fmt", $("fmt").value);
+$("goS").onclick = async () => {
+  if (!S.voice) return setMsg($("smsg"), "Hãy thêm và chọn một giọng trước.", "err");
+  const cues = S.cues.filter(c => c.text.trim());
+  if (!cues.length) return setMsg($("smsg"), "Chưa có câu nào để đọc.", "err");
+  const btn = $("goS");
+  const fd = new FormData();
+  fd.append("cues", JSON.stringify(cues.map(c => ({ start: c.start, end: c.end, text: c.text, voice_id: c.voice || "" }))));
+  fd.append("voice_id", S.voice); fd.append("fmt", $("sfmt").value);
+  fd.append("mode", $("smode").value); fd.append("fit", $("sfit").checked);
   const myId = ++genId;
-  abortCurrent(); clearResult(); stopAudio($("prev"));
-  btn.disabled = true; setMsg($("msg"), "Đang gửi phụ đề…");
+  abortCurrent(); clearSrtResult(); stopAudio($("pv"));
+  btn.disabled = true; setMsg($("smsg"), "Đang gửi phụ đề…");
+  const chars = cues.reduce((n, c) => n + c.text.length, 0);
   try {
     const j = await (await api("/api/srt/start", { method: "POST", body: fd })).json();
     if (myId !== genId) { fetch("/api/jobs/" + j.job_id, { method: "DELETE" }).catch(() => {}); return; }
@@ -329,38 +581,19 @@ async function generateSrt(fd, btn) {
       renderProgress(st);
     }
     if (st.state === "error") throw new Error(st.error || "Có lỗi khi tạo âm thanh.");
-    if (st.state === "cancelled") { setMsg($("msg"), "Đã hủy."); return; }
+    if (st.state === "cancelled") { setMsg($("smsg"), "Đã hủy."); return; }
     const blob = await (await api("/api/jobs/" + j.job_id + "/result")).blob();
     if (myId !== genId) return;
     const ext = blob.type.includes("mpeg") ? "mp3" : "wav";
-    outUrl = URL.createObjectURL(blob);
-    $("out").src = outUrl; $("dl").href = outUrl; $("dl").download = "voice-studio." + ext;
-    $("result").style.display = "grid";
-    setMsg($("msg"), "Xong sau " + fmtT(st.elapsed) + (($("fmt").value === "mp3" && ext === "wav") ? ". Máy chưa có ffmpeg nên kết quả là WAV." : "."), "ok");
-  } catch (e) { if (myId === genId) setMsg($("msg"), e.message, "err"); }
-  finally { if (myId === genId) { jobId = null; $("bar").classList.add("hidden"); btn.disabled = false; } }
-}
-$("goT").onclick = () => { const fd = new FormData(); fd.append("text", $("text").value); generate("/api/speak", fd, $("goT")); };
-$("goS").onclick = () => {
-  const fd = new FormData();
-  fd.append("text", $("srt").value); fd.append("mode", $("smode").value); fd.append("fit", $("sfit").checked);
-  generateSrt(fd, $("goS"));
+    srtUrl = URL.createObjectURL(blob);
+    $("sout").src = srtUrl; $("sdl").href = srtUrl;
+    $("sdl").download = (S.name ? S.name.replace(/\.[^.]+$/, "") : "phu-de") + "." + ext;
+    $("sresult").style.display = "grid";
+    if (st.elapsed > 5 && chars > 0) { store.set("vs_sec_per_char", String(st.elapsed / chars)); renderEstimate(); }
+    setMsg($("smsg"), "Xong sau " + fmtT(st.elapsed) + (($("sfmt").value === "mp3" && ext === "wav") ? ". Máy chưa có ffmpeg nên kết quả là WAV." : "."), "ok");
+  } catch (e) { if (myId === genId) setMsg($("smsg"), e.message, "err"); }
+  finally { if (myId === genId) { jobId = null; $("sbar").classList.add("hidden"); btn.disabled = false; } }
 };
-$("spick").onclick = () => $("sfile").click();
-async function countCues() {
-  const t = $("srt").value; if (!t.trim()) return setMsg($("scount"), "");
-  const fd = new FormData(); fd.append("text", t);
-  try { const j = await (await api("/api/parse", { method: "POST", body: fd })).json(); setMsg($("scount"), j.count + " câu thoại"); } catch (e) {}
-}
-$("sfile").onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  genId++; abortCurrent();            // huỷ kết quả của file phụ đề trước (đang tạo hoặc đang phát)
-  clearResult(); setMsg($("msg"), "");
-  $("goS").disabled = false; $("goT").disabled = false;
-  $("srt").value = await f.text(); countCues();
-  e.target.value = "";                // cho phép chọn lại cùng một file
-};
-$("srt").addEventListener("change", countCues);
 
 fetch("/api/status").then(r => r.json()).then(s => {
   if (!s.ffmpeg) $("ffnote").textContent = "Chưa tìm thấy ffmpeg. Vẫn dùng được file WAV; cài ffmpeg để xuất MP3, dùng ghi âm và tăng tốc câu dài.";
