@@ -122,14 +122,13 @@ def parse(text: str = Form(...)):
 
 @app.post("/api/srt")
 def srt_to_audio(text: str = Form(...), voice_id: str = Form(...), fmt: str = Form("wav"),
-                 mode: str = Form("timed"), fit: bool = Form(True),
-                 max_speed: float = Form(1.8)):
+                 mode: str = Form("timed"), fit: bool = Form(True)):
     cues = srtlib.parse(text)
     if not cues:
         raise HTTPException(400, "Không đọc được câu thoại nào trong phụ đề.")
     _meta(voice_id)
     n = len(cues)
-    max_speed = max(1.0, min(3.0, float(max_speed)))
+    max_speed = 2.5                      # tự tăng tốc để vừa khung giờ, nhưng không quá 2,5 lần để còn nghe rõ
     clips, sr = [], None
     for i, c in enumerate(cues):
         a, sr = _synth(c["text"], voice_id)
