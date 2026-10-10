@@ -122,17 +122,25 @@ def parse(text: str = Form(...)):
 
 @app.post("/api/srt")
 def srt_to_audio(text: str = Form(...), voice_id: str = Form(...), fmt: str = Form("wav"),
-                 mode: str = Form("timed"), fit: bool = Form(True)):
+                 mode: str = Form("timed"), fit: bool = Form(True),
+                 max_speed: float = Form(1.8)):
     cues = srtlib.parse(text)
     if not cues:
         raise HTTPException(400, "Không đọc được câu thoại nào trong phụ đề.")
     _meta(voice_id)
+    n = len(cues)
+    max_speed = max(1.0, min(3.0, float(max_speed)))
     clips, sr = [], None
-    for c in cues:
+    for i, c in enumerate(cues):
         a, sr = _synth(c["text"], voice_id)
-        slot = (c["end"] - c["start"]) / 1000
-        if mode == "timed" and fit and slot > 0.3 and len(a) / sr > slot:
-            a = au.speed_up(a, sr, min(1.6, (len(a) / sr) / slot))
+        if mode == "timed" and fit:
+            # Thời gian cho phép tính tới lúc câu kế tiếp bắt đầu, nên câu không bị đẩy trễ dây chuyền.
+            if i + 1 < n:
+                slot = (cues[i + 1]["start"] - c["start"]) / 1000 - 0.08
+            else:
+                slot = (c["end"] - c["start"]) / 1000 + 1.0
+            if slot > 0.3 and len(a) / sr > slot:
+                a = au.speed_up(a, sr, min(max_speed, (len(a) / sr) / slot))
         clips.append(a)
     gap = int(0.3 * sr)
     placed, cursor = [], 0

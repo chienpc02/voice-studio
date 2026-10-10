@@ -121,7 +121,10 @@ textarea.mono { font-family: var(--mono); font-size: .8rem; min-height: 200px; }
         </div>
         <label class="check" for="sfit">
           <input type="checkbox" id="sfit" checked>
-          <span>Tăng tốc câu đọc dài hơn khoảng thời gian cho phép (cần ffmpeg)</span>
+          <span>Tăng tốc câu đọc dài hơn khoảng thời gian cho phép </span>
+        </label>
+        <label for="smax">Tăng tốc tối đa: <b id="smaxv">1.8</b>x (cao hơn thì ít bị trễ nhưng giọng đọc nhanh hơn)
+          <input type="range" id="smax" min="1" max="2.5" step="0.1" value="1.8">
         </label>
         <div class="row"><button class="btn primary" id="goS" type="button">Tạo âm thanh từ phụ đề</button></div>
       </div>
@@ -249,9 +252,10 @@ async function generate(url, fd, btn) {
   btn.disabled = false;
 }
 $("goT").onclick = () => { const fd = new FormData(); fd.append("text", $("text").value); generate("/api/speak", fd, $("goT")); };
+$("smax").oninput = () => { $("smaxv").textContent = $("smax").value; };
 $("goS").onclick = () => {
   const fd = new FormData();
-  fd.append("text", $("srt").value); fd.append("mode", $("smode").value); fd.append("fit", $("sfit").checked);
+  fd.append("text", $("srt").value); fd.append("mode", $("smode").value); fd.append("fit", $("sfit").checked); fd.append("max_speed", $("smax").value);
   generate("/api/srt", fd, $("goS"));
 };
 $("spick").onclick = () => $("sfile").click();
